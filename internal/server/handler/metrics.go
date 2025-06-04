@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,22 +11,26 @@ import (
 
 func NewUpdateHandler(storage store.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received request: %s %s", r.Method, r.URL.Path)
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/update/"), "/")
-		if len(parts) != 3 {
-			http.Error(w, "bad request", http.StatusBadRequest)
-			return
-		}
 
-		mType, name, rawVal := parts[0], parts[1], parts[2]
-		if name == "" {
-			http.Error(w, "missing metric name", http.StatusNotFound)
+		if len(parts) < 2 || parts[1] == "" {
+			http.Error(w, "metric name not provided", http.StatusNotFound)
 			return
 		}
+		mType, name := parts[0], parts[1]
+
+		if len(parts) < 3 {
+			http.Error(w, "metric value not provided", http.StatusBadRequest)
+			return
+		}
+		rawVal := parts[2]
 
 		var m store.Metric
 		m.ID = name
@@ -46,14 +51,17 @@ func NewUpdateHandler(storage store.Storage) http.HandlerFunc {
 				return
 			}
 			m.Delta = &delta
-
 		default:
 			http.Error(w, "invalid metric type", http.StatusBadRequest)
+			return
 		}
+
 		if err := storage.UpdateMetric(m); err != nil {
+			log.Printf("Error updating metric: %v", err)
 			http.Error(w, "failed to update", http.StatusInternalServerError)
 			return
 		}
+
 		w.WriteHeader(http.StatusOK)
 	}
 }
