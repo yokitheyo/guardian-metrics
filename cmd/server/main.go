@@ -1,3 +1,16 @@
 package main
 
-func main() {}
+import (
+	"log"
+
+	"github.com/yokitheyo/guardian-metrics/internal/server"
+	"github.com/yokitheyo/guardian-metrics/internal/store"
+)
+
+func main() {
+	storage := store.NewMemStorage()
+
+	if err := server.RunServer(":8080", storage); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
+}
