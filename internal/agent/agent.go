@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"log"
 	"time"
 )
 
@@ -52,6 +53,7 @@ func (a *Agent) Run() {
 
 		case <-reportTicker.C:
 			if err := a.sender.SendMetrics(metrics); err != nil {
+				log.Printf("failed to send metrics: %v", err)
 			}
 		}
 	}
