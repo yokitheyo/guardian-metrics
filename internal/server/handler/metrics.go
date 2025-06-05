@@ -61,7 +61,6 @@ func NewUpdateHandler(storage store.Storage) http.HandlerFunc {
 			http.Error(w, "failed to update", http.StatusInternalServerError)
 			return
 		}
-
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}
