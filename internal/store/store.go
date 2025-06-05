@@ -17,4 +17,6 @@ type Metric struct {
 type Storage interface {
 	UpdateMetric(m Metric) error
 	GetAll() []Metric
+	GetGauge(name string) (float64, bool)
+	GetCounter(name string) (int64, bool)
 }
