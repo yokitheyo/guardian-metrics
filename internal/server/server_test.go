@@ -6,33 +6,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yokitheyo/guardian-metrics/internal/server/handler"
 	"github.com/yokitheyo/guardian-metrics/internal/store"
 )
 
-func TestRunServer(t *testing.T) {
+func TestRunServer_Gin(t *testing.T) {
 	storage := store.NewMemStorage()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler := handler.NewUpdateHandler(storage)
-		handler.ServeHTTP(w, r)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r2 := gin.New()
+		r2.POST("/update/:type/:name/:value", handler.UpdateMetricHandler(storage))
+		r2.ServeHTTP(w, r)
 	}))
-	defer server.Close()
+	defer ts.Close()
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
-	req, err := http.NewRequest(http.MethodPost, server.URL+"/update/counter/testMetric/42", nil)
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "text/plain")
-
-	resp, err := client.Do(req)
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(ts.URL+"/update/counter/testMetric/42", "text/plain", nil)
 	require.NoError(t, err)
 	defer resp.Body.Close()
-
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	metrics := storage.GetAll()

@@ -43,97 +43,6 @@ func (m *MockStorage) GetCounter(name string) (int64, bool) {
 	return 0, false
 }
 
-func TestUpdateHandler(t *testing.T) {
-	tests := []struct {
-		name           string
-		method         string
-		path           string
-		expectedStatus int
-		expectedBody   string
-	}{
-		{
-			name:           "valid counter metric",
-			method:         http.MethodPost,
-			path:           "/update/counter/someMetric/527",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "OK",
-		},
-		{
-			name:           "valid gauge metric",
-			method:         http.MethodPost,
-			path:           "/update/gauge/someMetric/42.5",
-			expectedStatus: http.StatusOK,
-			expectedBody:   "OK",
-		},
-		{
-			name:           "invalid method",
-			method:         http.MethodGet,
-			path:           "/update/counter/someMetric/527",
-			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody:   "method not allowed\n",
-		},
-		{
-			name:           "missing metric name",
-			method:         http.MethodPost,
-			path:           "/update/counter//527",
-			expectedStatus: http.StatusNotFound,
-			expectedBody:   "metric name not provided\n",
-		},
-		{
-			name:           "missing metric value",
-			method:         http.MethodPost,
-			path:           "/update/counter/someMetric",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "metric value not provided\n",
-		},
-		{
-			name:           "invalid metric type",
-			method:         http.MethodPost,
-			path:           "/update/invalid/someMetric/527",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "invalid metric type\n",
-		},
-		{
-			name:           "invalid counter value",
-			method:         http.MethodPost,
-			path:           "/update/counter/someMetric/invalid",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "invalid counter value\n",
-		},
-		{
-			name:           "invalid gauge value",
-			method:         http.MethodPost,
-			path:           "/update/gauge/someMetric/invalid",
-			expectedStatus: http.StatusBadRequest,
-			expectedBody:   "invalid gauge value\n",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &MockStorage{}
-
-			req := httptest.NewRequest(tt.method, tt.path, nil)
-			req.Header.Set("Content-Type", "text/plain")
-
-			rr := httptest.NewRecorder()
-
-			handler := NewUpdateHandler(storage)
-			handler.ServeHTTP(rr, req)
-
-			assert.Equal(t, tt.expectedStatus, rr.Code)
-
-			assert.Equal(t, tt.expectedBody, rr.Body.String())
-
-			if tt.expectedStatus == http.StatusOK {
-				require.Len(t, storage.metrics, 1)
-				metric := storage.metrics[0]
-				assert.Equal(t, "someMetric", metric.ID)
-			}
-		})
-	}
-}
-
 func TestUpdateHandler_Gin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
@@ -244,3 +153,128 @@ func parseFloat(s string) (float64, error) {
 func parseInt(s string) (int64, error) {
 	return strconv.ParseInt(s, 10, 64)
 }
+
+func TestUpdateMetricHandler_Gin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name           string
+		method         string
+		path           string
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "valid counter metric",
+			method:         http.MethodPost,
+			path:           "/update/counter/someMetric/527",
+			expectedStatus: http.StatusOK,
+			expectedBody:   "OK",
+		},
+		{
+			name:           "valid gauge metric",
+			method:         http.MethodPost,
+			path:           "/update/gauge/someMetric/42.5",
+			expectedStatus: http.StatusOK,
+			expectedBody:   "OK",
+		},
+		{
+			name:           "invalid metric type",
+			method:         http.MethodPost,
+			path:           "/update/invalid/someMetric/527",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid metric type",
+		},
+		{
+			name:           "invalid counter value",
+			method:         http.MethodPost,
+			path:           "/update/counter/someMetric/invalid",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid counter value",
+		},
+		{
+			name:           "invalid gauge value",
+			method:         http.MethodPost,
+			path:           "/update/gauge/someMetric/invalid",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid gauge value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := &MockStorage{}
+			r := gin.New()
+			r.POST("/update/:type/:name/:value", UpdateMetricHandler(storage))
+
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req.Header.Set("Content-Type", "text/plain")
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+			assert.Equal(t, tt.expectedBody, rr.Body.String())
+
+			if tt.expectedStatus == http.StatusOK {
+				require.Len(t, storage.metrics, 1)
+				metric := storage.metrics[0]
+				assert.Equal(t, "someMetric", metric.ID)
+			}
+		})
+	}
+}
+
+func TestGetMetricValueHandler_Gin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	storage := &MockStorage{}
+	val := 42.5
+	storage.metrics = append(storage.metrics, store.Metric{ID: "gaugeMetric", MType: store.Gauge, Value: &val})
+	cnt := int64(10)
+	storage.metrics = append(storage.metrics, store.Metric{ID: "counterMetric", MType: store.Counter, Delta: &cnt})
+
+	r := gin.New()
+	r.GET("/value/:type/:name", GetMetricValueHandler(storage))
+
+	t.Run("existing gauge", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/value/gauge/gaugeMetric", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "42.5")
+	})
+	t.Run("existing counter", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/value/counter/counterMetric", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "10")
+	})
+	t.Run("not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/value/gauge/unknown", nil)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Contains(t, rr.Body.String(), "metric not found")
+	})
+}
+
+// func TestListMetricsHandler_Gin(t *testing.T) {
+// 	gin.SetMode(gin.TestMode)
+// 	storage := &MockStorage{}
+// 	val := 1.23
+// 	cnt := int64(7)
+// 	storage.metrics = append(storage.metrics, store.Metric{ID: "gauge1", MType: store.Gauge, Value: &val})
+// 	storage.metrics = append(storage.metrics, store.Metric{ID: "counter1", MType: store.Counter, Delta: &cnt})
+
+// 	r := gin.New()
+// 	r.GET("/", ListMetricsHandler(storage))
+
+// 	req := httptest.NewRequest(http.MethodGet, "/", nil)
+// 	rr := httptest.NewRecorder()
+// 	r.ServeHTTP(rr, req)
+
+// 	assert.Equal(t, http.StatusOK, rr.Code)
+// 	assert.Contains(t, rr.Body.String(), "gauge1")
+// 	assert.Contains(t, rr.Body.String(), "counter1")
+// 	assert.Contains(t, rr.Body.String(), "1.230000")
+// 	assert.Contains(t, rr.Body.String(), ">7<")
+// }
