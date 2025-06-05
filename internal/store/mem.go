@@ -51,3 +51,17 @@ func (s *MemStorage) GetAll() []Metric {
 	}
 	return result
 }
+
+func (s *MemStorage) GetGauge(name string) (float64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	val, ok := s.gauges[name]
+	return val, ok
+}
+
+func (s *MemStorage) GetCounter(name string) (int64, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	val, ok := s.counters[name]
+	return val, ok
+}
