@@ -63,5 +63,6 @@ func NewUpdateHandler(storage store.Storage) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	}
 }
