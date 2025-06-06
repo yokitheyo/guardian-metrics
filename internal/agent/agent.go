@@ -5,14 +5,6 @@ import (
 	"time"
 )
 
-type MetricsCollector interface {
-	CollectMetrics() map[string]float64
-}
-
-type MetricsSender interface {
-	SendMetrics(metrics map[string]float64) error
-}
-
 type Agent struct {
 	collector      MetricsCollector
 	sender         MetricsSender
