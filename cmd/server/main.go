@@ -10,7 +10,7 @@ import (
 func main() {
 	storage := store.NewMemStorage()
 
-	if err := server.RunServer(":8080", storage); err != nil {
+	if err := server.RunServer(storage); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
