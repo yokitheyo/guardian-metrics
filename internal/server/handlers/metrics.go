@@ -7,28 +7,28 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yokitheyo/guardian-metrics/internal/store"
+	storagepkg "github.com/yokitheyo/guardian-metrics/internal/storage"
 )
 
-func UpdateMetricHandler(storage store.Storage) gin.HandlerFunc {
+func UpdateMetricHandler(storage storagepkg.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mType := c.Param("type")
 		name := c.Param("name")
 		value := c.Param("value")
 
-		var m store.Metric
+		var m storagepkg.Metric
 		m.ID = name
-		m.MType = store.MetricType(mType)
+		m.MType = storagepkg.MetricType(mType)
 
 		switch m.MType {
-		case store.Gauge:
+		case storagepkg.Gauge:
 			val, err := strconv.ParseFloat(value, 64)
 			if err != nil {
 				c.String(http.StatusBadRequest, "invalid gauge value")
 				return
 			}
 			m.Value = &val
-		case store.Counter:
+		case storagepkg.Counter:
 			delta, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
 				c.String(http.StatusBadRequest, "invalid counter value")
@@ -48,7 +48,7 @@ func UpdateMetricHandler(storage store.Storage) gin.HandlerFunc {
 	}
 }
 
-func GetMetricValueHandler(storage store.Storage) gin.HandlerFunc {
+func GetMetricValueHandler(storage storagepkg.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mType := c.Param("type")
 		name := c.Param("name")
@@ -56,14 +56,14 @@ func GetMetricValueHandler(storage store.Storage) gin.HandlerFunc {
 			found  bool
 			result string
 		)
-		switch store.MetricType(mType) {
-		case store.Gauge:
+		switch storagepkg.MetricType(mType) {
+		case storagepkg.Gauge:
 			var val float64
 			val, found = storage.GetGauge(name)
 			if found {
 				result = strconv.FormatFloat(val, 'f', -1, 64)
 			}
-		case store.Counter:
+		case storagepkg.Counter:
 			var val int64
 			val, found = storage.GetCounter(name)
 			if found {
@@ -78,7 +78,7 @@ func GetMetricValueHandler(storage store.Storage) gin.HandlerFunc {
 	}
 }
 
-func ListMetricsHandler(storage store.Storage) gin.HandlerFunc {
+func ListMetricsHandler(storage storagepkg.Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		metrics := storage.GetAll()
 		tmpl := `<html><body><h1>Metrics</h1><table border="1"><tr><th>Name</th><th>Type</th><th>Value</th></tr>{{range .}}<tr><td>{{.ID}}</td><td>{{.MType}}</td><td>{{if eq .MType "gauge"}}{{with .Value}}{{printf "%f" .}}{{end}}{{else}}{{.Delta}}{{end}}</td></tr>{{end}}</table></body></html>`

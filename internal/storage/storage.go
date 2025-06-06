@@ -1,4 +1,4 @@
-package store
+package storage
 
 type MetricType string
 
