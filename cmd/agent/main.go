@@ -1,44 +1,28 @@
 package main
 
 import (
-	"flag"
 	"log"
-	"strconv"
-	"time"
 
 	"github.com/yokitheyo/guardian-metrics/internal/agent"
+	"github.com/yokitheyo/guardian-metrics/internal/config"
 )
 
 func main() {
-	var (
-		addr              = flag.String("a", "localhost:8080", "address of HTTP server")
-		reportIntervalStr = flag.String("r", "10", "report interval in seconds")
-		pollIntervalStr   = flag.String("p", "2", "poll interval in seconds")
-	)
-	flag.Parse()
+	cfg := config.LoadAgentConfig()
 
-	if len(flag.Args()) > 0 {
-		log.Fatalf("unknown flag(s): %v", flag.Args())
-	}
-
-	reportIntervalSec, err := strconv.Atoi(*reportIntervalStr)
-	if err != nil || reportIntervalSec <= 0 {
-		log.Fatalf("invalid report interval: %v", *reportIntervalStr)
-	}
-	pollIntervalSec, err := strconv.Atoi(*pollIntervalStr)
-	if err != nil || pollIntervalSec <= 0 {
-		log.Fatalf("invalid poll interval: %v", *pollIntervalStr)
+	if cfg.Address == "" {
+		log.Fatal("address is not set")
 	}
 
 	collector := agent.NewRuntimeCollector()
-	sender := agent.NewHTTPSender("http://" + *addr)
+	sender := agent.NewHTTPSender("http://" + cfg.Address)
 
 	a := agent.NewAgent(
 		collector,
 		sender,
-		time.Duration(pollIntervalSec)*time.Second,
-		time.Duration(reportIntervalSec)*time.Second,
-		"http://"+*addr,
+		cfg.PollInterval,
+		cfg.ReportInterval,
+		"http://"+cfg.Address,
 	)
 
 	log.Println("Starting agent...")
