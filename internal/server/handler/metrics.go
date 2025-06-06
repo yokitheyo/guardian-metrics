@@ -61,7 +61,7 @@ func GetMetricValueHandler(storage store.Storage) gin.HandlerFunc {
 			var val float64
 			val, found = storage.GetGauge(name)
 			if found {
-				result = fmt.Sprintf("%.3f", val)
+				result = fmt.Sprintf("%.2f", val)
 			}
 		case store.Counter:
 			var val int64
