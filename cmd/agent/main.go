@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -10,11 +11,22 @@ import (
 )
 
 func main() {
-	var (
-		addr              = flag.String("a", "localhost:8080", "address of HTTP server")
-		reportIntervalStr = flag.String("r", "10", "report interval in seconds")
-		pollIntervalStr   = flag.String("p", "2", "poll interval in seconds")
-	)
+	envAddr := os.Getenv("ADDRESS")
+	if envAddr == "" {
+		envAddr = "localhost:8080"
+	}
+	envReportInterval := os.Getenv("REPORT_INTERVAL")
+	if envReportInterval == "" {
+		envReportInterval = "10"
+	}
+	envPollInterval := os.Getenv("POLL_INTERVAL")
+	if envPollInterval == "" {
+		envPollInterval = "2"
+	}
+
+	addr := flag.String("a", envAddr, "address of HTTP server")
+	reportIntervalStr := flag.String("r", envReportInterval, "report interval in seconds")
+	pollIntervalStr := flag.String("p", envPollInterval, "poll interval in seconds")
 	flag.Parse()
 
 	if len(flag.Args()) > 0 {

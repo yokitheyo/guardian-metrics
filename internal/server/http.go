@@ -3,6 +3,7 @@ package server
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yokitheyo/guardian-metrics/internal/server/handler"
@@ -10,7 +11,11 @@ import (
 )
 
 func RunServer(storage store.Storage) error {
-	addr := flag.String("a", "localhost:8080", "address for HTTP server")
+	addrEnv := os.Getenv("ADDRESS")
+	if addrEnv == "" {
+		addrEnv = "localhost:8080"
+	}
+	addr := flag.String("a", addrEnv, "address for HTTP server")
 	flag.Parse()
 
 	r := gin.Default()
