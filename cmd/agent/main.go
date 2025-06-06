@@ -4,6 +4,8 @@ import (
 	"log"
 
 	"github.com/yokitheyo/guardian-metrics/internal/agent"
+	"github.com/yokitheyo/guardian-metrics/internal/agent/collector"
+	"github.com/yokitheyo/guardian-metrics/internal/agent/sender"
 	"github.com/yokitheyo/guardian-metrics/internal/config"
 )
 
@@ -14,12 +16,12 @@ func main() {
 		log.Fatal("address is not set")
 	}
 
-	collector := agent.NewRuntimeCollector()
-	sender := agent.NewHTTPSender("http://" + cfg.Address)
+	coll := collector.NewRuntimeCollector()
+	snd := sender.NewHTTPSender("http://" + cfg.Address)
 
 	a := agent.NewAgent(
-		collector,
-		sender,
+		coll,
+		snd,
 		cfg.PollInterval,
 		cfg.ReportInterval,
 		"http://"+cfg.Address,

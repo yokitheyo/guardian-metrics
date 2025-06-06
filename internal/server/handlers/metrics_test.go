@@ -9,25 +9,25 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yokitheyo/guardian-metrics/internal/store"
+	storagepkg "github.com/yokitheyo/guardian-metrics/internal/storage"
 )
 
 type MockStorage struct {
-	metrics []store.Metric
+	metrics []storagepkg.Metric
 }
 
-func (m *MockStorage) UpdateMetric(metric store.Metric) error {
+func (m *MockStorage) UpdateMetric(metric storagepkg.Metric) error {
 	m.metrics = append(m.metrics, metric)
 	return nil
 }
 
-func (m *MockStorage) GetAll() []store.Metric {
+func (m *MockStorage) GetAll() []storagepkg.Metric {
 	return m.metrics
 }
 
 func (m *MockStorage) GetGauge(name string) (float64, bool) {
 	for _, metric := range m.metrics {
-		if metric.ID == name && metric.MType == store.Gauge && metric.Value != nil {
+		if metric.ID == name && metric.MType == storagepkg.Gauge && metric.Value != nil {
 			return *metric.Value, true
 		}
 	}
@@ -36,7 +36,7 @@ func (m *MockStorage) GetGauge(name string) (float64, bool) {
 
 func (m *MockStorage) GetCounter(name string) (int64, bool) {
 	for _, metric := range m.metrics {
-		if metric.ID == name && metric.MType == store.Counter && metric.Delta != nil {
+		if metric.ID == name && metric.MType == storagepkg.Counter && metric.Delta != nil {
 			return *metric.Delta, true
 		}
 	}
@@ -98,19 +98,19 @@ func TestUpdateHandler_Gin(t *testing.T) {
 				name := c.Param("name")
 				value := c.Param("value")
 
-				var m store.Metric
+				var m storagepkg.Metric
 				m.ID = name
-				m.MType = store.MetricType(mType)
+				m.MType = storagepkg.MetricType(mType)
 
 				switch m.MType {
-				case store.Gauge:
+				case storagepkg.Gauge:
 					val, err := parseFloat(value)
 					if err != nil {
 						c.String(http.StatusBadRequest, "invalid gauge value")
 						return
 					}
 					m.Value = &val
-				case store.Counter:
+				case storagepkg.Counter:
 					delta, err := parseInt(value)
 					if err != nil {
 						c.String(http.StatusBadRequest, "invalid counter value")
@@ -227,9 +227,9 @@ func TestGetMetricValueHandler_Gin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	storage := &MockStorage{}
 	val := 42.5
-	storage.metrics = append(storage.metrics, store.Metric{ID: "gaugeMetric", MType: store.Gauge, Value: &val})
+	storage.metrics = append(storage.metrics, storagepkg.Metric{ID: "gaugeMetric", MType: storagepkg.Gauge, Value: &val})
 	cnt := int64(10)
-	storage.metrics = append(storage.metrics, store.Metric{ID: "counterMetric", MType: store.Counter, Delta: &cnt})
+	storage.metrics = append(storage.metrics, storagepkg.Metric{ID: "counterMetric", MType: storagepkg.Counter, Delta: &cnt})
 
 	r := gin.New()
 	r.GET("/value/:type/:name", GetMetricValueHandler(storage))
@@ -272,7 +272,7 @@ func TestGetMetricValueHandler_Gin(t *testing.T) {
 // 	rr := httptest.NewRecorder()
 // 	r.ServeHTTP(rr, req)
 
-// 	assert.Equal(t, http.StatusOK, rr.Code)
+// 	// 	assert.Equal(t, http.StatusOK, rr.Code)
 // 	assert.Contains(t, rr.Body.String(), "gauge1")
 // 	assert.Contains(t, rr.Body.String(), "counter1")
 // 	assert.Contains(t, rr.Body.String(), "1.230000")
