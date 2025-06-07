@@ -92,3 +92,92 @@ func ListMetricsHandler(storage storagepkg.Storage) gin.HandlerFunc {
 		t.Execute(c.Writer, metrics)
 	}
 }
+
+func UpdateMetricJSONHandler(storage storagepkg.Storage) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var metric storagepkg.Metric
+
+		if err := c.ShouldBindJSON(&metric); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+			return
+		}
+
+		if metric.MType != storagepkg.Gauge && metric.MType != storagepkg.Counter {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid metric type"})
+			return
+		}
+
+		if metric.MType == storagepkg.Gauge && metric.Value == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "value is required for gauge metrics"})
+			return
+		}
+		if metric.MType == storagepkg.Counter && metric.Delta == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "delta is required for counter metrics"})
+			return
+		}
+
+		if err := storage.UpdateMetric(metric); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update metric"})
+			return
+		}
+
+		var responseMetric storagepkg.Metric
+		responseMetric.ID = metric.ID
+		responseMetric.MType = metric.MType
+
+		if metric.MType == storagepkg.Gauge {
+			if val, found := storage.GetGauge(metric.ID); found {
+				responseMetric.Value = &val
+			}
+		} else if metric.MType == storagepkg.Counter {
+			if val, found := storage.GetCounter(metric.ID); found {
+				responseMetric.Delta = &val
+			}
+		}
+
+		c.JSON(http.StatusOK, responseMetric)
+	}
+}
+
+func GetMetricJSONHandler(storage storagepkg.Storage) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var metric storagepkg.Metric
+
+		if err := c.ShouldBindJSON(&metric); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+			return
+		}
+
+		if metric.ID == "" || metric.MType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "id and type are required"})
+			return
+		}
+
+		if metric.MType != storagepkg.Gauge && metric.MType != storagepkg.Counter {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid metric type"})
+			return
+		}
+
+		var responseMetric storagepkg.Metric
+		responseMetric.ID = metric.ID
+		responseMetric.MType = metric.MType
+
+		if metric.MType == storagepkg.Gauge {
+			if val, found := storage.GetGauge(metric.ID); found {
+				responseMetric.Value = &val
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
+				return
+			}
+		} else if metric.MType == storagepkg.Counter {
+			if val, found := storage.GetCounter(metric.ID); found {
+				responseMetric.Delta = &val
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "metric not found"})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, responseMetric)
+	}
+}

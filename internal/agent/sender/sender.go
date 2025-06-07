@@ -1,9 +1,10 @@
 package sender
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 )
 
 type HTTPSender struct {
@@ -20,30 +21,56 @@ func NewHTTPSender(serverAddress string) *HTTPSender {
 
 func (s *HTTPSender) SendMetrics(metrics map[string]float64) error {
 	for name, value := range metrics {
-		metricType := "gauge"
+		// Determine metric type
+		var metricType string
 		if name == "PollCount" {
 			metricType = "counter"
+		} else {
+			metricType = "gauge"
 		}
 
-		url := fmt.Sprintf("%s/update/%s/%s/%s",
-			s.serverAddress,
-			metricType,
-			name,
-			strconv.FormatFloat(value, 'f', -1, 64),
-		)
+		// Create metric struct
+		var metric map[string]interface{}
+		if metricType == "counter" {
+			// Convert float64 to int64 for counter
+			delta := int64(value)
+			metric = map[string]interface{}{
+				"id":    name,
+				"type":  metricType,
+				"delta": delta,
+			}
+		} else {
+			metric = map[string]interface{}{
+				"id":    name,
+				"type":  metricType,
+				"value": value,
+			}
+		}
 
-		req, err := http.NewRequest(http.MethodPost, url, nil)
+		// Marshal to JSON
+		jsonData, err := json.Marshal(metric)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metric: %w", err)
+		}
+
+		// Create request
+		url := fmt.Sprintf("%s/update/", s.serverAddress)
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 
-		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Content-Type", "application/json")
 
+		// Send request
 		resp, err := s.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to send request: %w", err)
 		}
-		resp.Body.Close()
+
+		if resp.Body != nil {
+			resp.Body.Close()
+		}
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
