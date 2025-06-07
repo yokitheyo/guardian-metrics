@@ -8,10 +8,10 @@ const (
 )
 
 type Metric struct {
-	ID    string
-	MType MetricType
-	Value *float64
-	Delta *int64
+	ID    string     `json:"id"`
+	MType MetricType `json:"type"`
+	Delta *int64     `json:"delta,omitempty"`
+	Value *float64   `json:"value,omitempty"`
 }
 
 type Storage interface {
